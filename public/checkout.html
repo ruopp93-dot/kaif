@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Оплата заказа — Vape Shop</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #151821;
+        --text: #eaeef7;
+        --muted: #a8b3cf;
+        --accent: #40a9ff;
+        --danger: #ff4d4f;
+      }
+      body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
+      .container { max-width: 680px; margin: 0 auto; padding: 16px; }
+      .panel { background: var(--panel); border-radius: 12px; padding: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.25); }
+      h1, h2, h3 { margin: 0 0 12px; }
+      .muted { color: var(--muted); }
+      .row { display: flex; gap: 12px; align-items: center; }
+      .row-space { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      label { font-size: 12px; color: var(--muted); }
+      input, textarea, select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a3040; background: #0f1320; color: var(--text); outline: none; }
+      textarea { min-height: 96px; }
+      .btn { background: var(--accent); color: white; border: none; border-radius: 10px; padding: 12px 16px; cursor: pointer; font-weight: 600; }
+      .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .btn-danger { background: var(--danger); }
+      .list { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+      .item { display: grid; grid-template-columns: 1fr 64px 80px; gap: 8px; align-items: baseline; }
+      .total { font-weight: 700; font-size: 18px; }
+      .footer { margin-top: 16px; display: flex; justify-content: space-between; align-items: center; }
+      a { color: var(--accent); text-decoration: none; }
+      .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; background: #0b0e16; padding: 8px; border-radius: 8px; display: block; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="panel">
+        <h1>Оплата заказа</h1>
+        <div class="muted">Проверьте корзину, заполните контакты и перейдите к оплате.</div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <h2>Корзина</h2>
+        <div id="cart" class="list"></div>
+        <div class="row-space total"><span>Итого</span><span id="total">0 ₽</span></div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <h2>Контакты и доставка</h2>
+        <div class="grid">
+          <div>
+            <label>Имя</label>
+            <input id="name" placeholder="Ваше имя" />
+          </div>
+          <div>
+            <label>Телефон</label>
+            <input id="phone" placeholder="+7..." />
+          </div>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <div>
+            <label>Способ</label>
+            <select id="delivery">
+              <option value="pickup">Самовывоз</option>
+              <option value="delivery">Доставка</option>
+            </select>
+          </div>
+          <div>
+            <label>Город</label>
+            <input id="city" placeholder="Город" />
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label>Адрес (если доставка)</label>
+          <input id="address" placeholder="Улица, дом, квартира" />
+        </div>
+        <div style="margin-top:12px">
+          <label>Комментарий к заказу</label>
+          <textarea id="comment" placeholder="Пожелания..."></textarea>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <h2>Подтверждение</h2>
+        <div class="muted">Нажмите «Оплатить», чтобы перейти к оплате. Технически здесь должен быть переход к платёжному провайдеру или создание счёта на сервере.</div>
+        <div class="footer">
+          <button id="pay" class="btn">Оплатить</button>
+          <a id="back" href="#">Вернуться к магазину</a>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px">
+        <h3>Техническая информация (payload)</h3>
+        <pre id="payload" class="code"></pre>
+      </div>
+    </div>
+
+    <script>
+      function formatPrice(amount, currency) {
+        try { return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: currency || 'RUB' }).format(amount) } catch { return amount + ' ' + (currency || 'RUB') }
+      }
+      function getQueryParam(name) {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name);
+      }
+      function safeParse(json) {
+        try { return JSON.parse(json) } catch { return null }
+      }
+
+      const payloadRaw = getQueryParam('payload');
+      const data = safeParse(payloadRaw);
+      const items = Array.isArray(data?.items) ? data.items : [];
+      const total = Number(data?.total || 0);
+      const currency = (data?.currency || 'RUB');
+
+      document.getElementById('payload').textContent = JSON.stringify(data || {}, null, 2);
+
+      const cartEl = document.getElementById('cart');
+      const totalEl = document.getElementById('total');
+      totalEl.textContent = formatPrice(total, currency);
+
+      if (items.length === 0) {
+        cartEl.innerHTML = '<div class="muted">Корзина пуста. Вернитесь в магазин и добавьте товары.</div>';
+      } else {
+        for (const it of items) {
+          const row = document.createElement('div');
+          row.className = 'item';
+          const title = document.createElement('div');
+          title.textContent = `${it.id}`;
+          const qty = document.createElement('div');
+          qty.textContent = `x${it.qty}`;
+          const price = document.createElement('div');
+          price.style.textAlign = 'right';
+          price.textContent = formatPrice(it.price * it.qty, currency);
+          row.appendChild(title);
+          row.appendChild(qty);
+          row.appendChild(price);
+          cartEl.appendChild(row);
+        }
+      }
+
+      document.getElementById('back').addEventListener('click', (e) => {
+        e.preventDefault();
+        // Предпочтительно вернуться назад в историю
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          // Либо открыть магазин, если известен URL (укажите свой продакшн-URL)
+          window.location.href = '/';
+        }
+      });
+
+      document.getElementById('pay').addEventListener('click', async () => {
+        const order = {
+          items,
+          total,
+          currency,
+          contact: {
+            name: document.getElementById('name').value.trim(),
+            phone: document.getElementById('phone').value.trim(),
+            delivery: document.getElementById('delivery').value,
+            city: document.getElementById('city').value.trim(),
+            address: document.getElementById('address').value.trim(),
+            comment: document.getElementById('comment').value.trim(),
+          }
+        };
+
+        // TODO: замените этот код на реальную интеграцию с платёжным провайдером.
+        // Например: запрос на ваш сервер для создания платежа
+        // const res = await fetch('https://your.api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(order) });
+        // const { paymentUrl } = await res.json();
+        // window.location.href = paymentUrl;
+
+        alert('Демо: заказ собран, отправьте его на ваш сервер для создания платежа. Смотрите payload ниже.');
+        console.log('ORDER_TO_PAY', order);
+      });
+    </script>
+  </body>
+</html>
