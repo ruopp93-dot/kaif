@@ -156,7 +156,7 @@ function processFile(filePath, hintCategory) {
 
 function generateTs(products) {
   const header = `import { Product } from '../types';\n\n`;
-  const body = `export const products: Product[] = ${JSON.stringify(products, null, 2)} as const;\n`;
+  const body = `export const products: Product[] = ${JSON.stringify(products, null, 2)};\n`;
   return header + body;
 }
 

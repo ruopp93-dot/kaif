@@ -13231,4 +13231,4 @@ export const products: Product[] = [
     "category": "vape",
     "inStock": true
   }
-] as const;
+];
